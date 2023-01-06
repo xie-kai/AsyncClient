@@ -319,6 +319,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         custom_parse=None,
         item=None,
         status_ok=None,
+        read=False,
         **kwargs
     ):
         """
@@ -327,12 +328,14 @@ class AsyncHttpClient(AsyncHttpClientData):
         :params key          : key 用于 item 字典的键
         :params custom_parse : 自定义解析方法(注意: 函数必须是异步函数)
         :params item         : 保存数据的字典, 数据来源custom_parse函数返回值
-        
+        :params read         : 返回值 (response, read) read= await response.read()
+                               数据量过大不建议开启 default: False
+
         # 判断session是否可用 不可用创建 session
         # 不建议直接使用request
         # 因为它会为每个请求创建一个ClientSession()
         """
-        
+
         if not isinstance(session, aiohttp.ClientSession):
             session = aiohttp.ClientSession(**self._set_session_parameter())
             _new_session = True
@@ -344,7 +347,7 @@ class AsyncHttpClient(AsyncHttpClientData):
             self._status_ok = bool(status_ok)
 
         try:
-            response = await self._request(url, session, key, custom_parse, item, **kwargs)
+            response = await self._request(url, session, key, custom_parse, item, bool(read), **kwargs)
         finally:
             # 关闭创建的session
             if _new_session is True:
@@ -359,6 +362,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         key=None,
         custom_parse=None,
         item=None,
+        read=False,
         **kwargs
     ):
         # 获取请求参数 type -> dict
@@ -380,6 +384,9 @@ class AsyncHttpClient(AsyncHttpClientData):
                         if key is None:
                             key = str(0)
                         item[key] = content
+                    # read数据
+                    if read is True:
+                        return (response, await response.read())
                     return response
 
             except self.EXCEPTION as error:
@@ -390,7 +397,7 @@ class AsyncHttpClient(AsyncHttpClientData):
 
 
     async def _parse_status(self, url, response):
-    
+
         status, status_ok = response.status, self._status_ok
         # 状态码判断
         if str(status).startswith("4"):
@@ -400,7 +407,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         # 请求状态码 捕获
         if status_ok and status==200:
             status_ok = False
-            
+
         if status in self._cstatus or status_ok:
             if self._message is True:
                 warnings.warn(
@@ -409,42 +416,45 @@ class AsyncHttpClient(AsyncHttpClientData):
         return True
 
 
-    async def _parse_response(self, response, custom_parse, **kwrags):
+    async def _parse_response(self, response, custom_parse, **kwargs):
         if not callable(custom_parse):
             return response
 
         # 使用自定义解析函数(注意: 函数必须是异步函数)
         return await custom_parse(
-            session=kwrags["session"], response=response,
-            key=kwrags["key"], request=kwrags["request"],
+            session=kwargs["session"], response=response,
+            key=kwargs["key"], request=kwargs["request"],
             instance=self)
 
 
-    def get(self, url, custom_parse=None, allow_redirects=True, **kwargs):
+    def get(self, url, custom_parse=None, allow_redirects=True, read=False, **kwargs):
         return asyncio.run(
             self.request(
                 method="GET",
                 url=url,
+                read=bool(read),
                 custom_parse=custom_parse,
                 allow_redirects=allow_redirects,
                 **kwargs))
 
 
-    def post(self, url, custom_parse=None, allow_redirects=True, **kwargs):
+    def post(self, url, custom_parse=None, allow_redirects=True, read=False, **kwargs):
         return asyncio.run(
             self.request(
                 method="POST",
                 url=url,
+                read=bool(read),
                 custom_parse=custom_parse,
                 allow_redirects=allow_redirects,
                 **kwargs))
 
 
-    def head(self, url, custom_parse=None, allow_redirects=True, **kwargs):
+    def head(self, url, custom_parse=None, allow_redirects=True, read=False, **kwargs):
         return asyncio.run(
             self.request(
                 method="HEAD",
                 url=url,
+                read=bool(read),
                 custom_parse=custom_parse,
                 allow_redirects=allow_redirects,
                 **kwargs))
