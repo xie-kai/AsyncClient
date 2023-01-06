@@ -1,20 +1,20 @@
-# async_httpclient
+# aclient
 
 ##  安装说明
 
 使用`pip`或其他 PyPi 软件包进行安装
 
 ```
-pip install async_httpclient
+pip install aclient
 ```
 
-## 使用 async_httpclient 发送异步请求
+## 使用 aclient 发送异步请求
 
 您可以试试：
 
 ```python
 import re
-from async_httpclient import *
+from aclient import *
 
 
 # 自定义解析函数 注意; 函数必需是异步的
