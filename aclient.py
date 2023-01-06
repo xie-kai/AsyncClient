@@ -45,6 +45,7 @@ class AsyncHttpClientData:
         :params sleep     : 每个请求休眠 asyncio.sleep(sleep) default: None
         :params cstatus   : 捕获请求状态码并重新发送请求
         :params status_ok : 循环发送请求直到状态码200结束 default: True
+        :params message   : 打印异常信息 default: False
         """
         self._limit     = limit
         self._base_url  = base_url
