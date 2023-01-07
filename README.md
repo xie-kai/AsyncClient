@@ -17,6 +17,8 @@ import re
 from aclient import *
 
 
+aclient = AsyncHttpClient()
+
 # 自定义解析函数 注意; 函数必需是异步的
 async def parse(response, **kwargs):
 
@@ -29,18 +31,35 @@ async def parse(response, **kwargs):
 
 # 请求地址 可以发送大量地址
 url  = "https://www.baidu.com"
-# 保存解析后的数据
-item = {}
 
-aclient = AsyncHttpClient()
-asyncio.run(
+# urls列表格式
+urls = [url for _ in range(2)]
+
+
+result  = asyncio.run(
     aclient.gather_request(
-        url, custom_parse=parse, item=item
+        urls, custom_parse=parse
     )
 )
 # 打印item数据
-print(item)
-
+print(result)
 # 结果
-# item = {'0': '百度一下'}
+# result = {'0': '百度一下', '1': '百度一下'}
+
+
+# urls字典格式
+urls = {
+    f"第{i}个": {"url": url, "timeout": 5}
+        for i in range(2)
+}
+aclient = AsyncHttpClient()
+result  = asyncio.run(
+    aclient.gather_request(
+        urls, custom_parse=parse
+    )
+)
+# 打印item数据
+print(result)
+# 结果
+# result = {'第0个': '百度一下', '第1个': '百度一下'}
 ```
