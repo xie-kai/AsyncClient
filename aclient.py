@@ -48,8 +48,6 @@ class AsyncHttpClient(AsyncHttpClientData):
         # URL编码
         if bool(encoded) is not self._encoded:
             self._encoded = bool(encoded)
-        # item是运行完成返回的结果
-        item = {}
         # 设置 aiohttp session 参数 配置连接池
         session_params = self._set_session_parameter(**kwargs)
         # 构建urls
@@ -75,23 +73,25 @@ class AsyncHttpClient(AsyncHttpClientData):
                     key=key,
                     session=session,
                     custom_parse=custom_parse,
-                    item=item,
                     **_item
                 )
                     for key, _item in urls.items()
             ]
-            # 收集所有异步任务
-            await asyncio.gather(*tasks)
-        return item
+            # 收集所有异步任务 gather返回结果顺序为 tasks 传入顺序
+            tasks_result = await asyncio.gather(*tasks)
+            tasks_result = {
+                key: tasks_result[index]
+                    for index, key in enumerate(urls.keys())
+            }
+        return tasks_result
 
 
     async def request(
         self,
         url,
         session=None,
-        key=None,
         custom_parse=None,
-        item=None,
+        key=None,
         status_ok=None,
         read=False,
         **kwargs
@@ -99,9 +99,8 @@ class AsyncHttpClient(AsyncHttpClientData):
         """
         :params url          : 异步请求URL type: str or yarl.URL
         :params session      : 异步请求连接池 aiohttp.ClientSession()
-        :params key          : key 用于 item 字典的键
         :params custom_parse : 自定义解析方法(注意: 函数必须是异步函数)
-        :params item         : 保存数据的字典, 数据来源custom_parse函数返回值
+        :params key          : key 用于自定义方法 custom_parse 的关键字参数
         :params read         : 返回值 (response, read) read= await response.read()
                                数据量过大不建议开启 default: False
 
@@ -109,24 +108,21 @@ class AsyncHttpClient(AsyncHttpClientData):
         # 不建议直接使用request
         # 因为它会为每个请求创建一个ClientSession()
         """
-
+        _new_session = False
         if not isinstance(session, aiohttp.ClientSession):
             session = aiohttp.ClientSession(**self._set_session_parameter())
             _new_session = True
-        else:
-            _new_session = False
-
         # status_ok
         if status_ok is not None:
             self._status_ok = bool(status_ok)
-
         try:
-            response = await self._request(url, session, key, custom_parse, item, bool(read), **kwargs)
+            content = await self._request(
+                url, session, key, custom_parse, bool(read), **kwargs)
         finally:
             # 关闭创建的session
             if _new_session is True:
                 await session.close()
-        return response
+        return content
 
 
     async def _request(
@@ -135,7 +131,6 @@ class AsyncHttpClient(AsyncHttpClientData):
         session=None,
         key=None,
         custom_parse=None,
-        item=None,
         read=False,
         **kwargs
     ):
@@ -153,15 +148,10 @@ class AsyncHttpClient(AsyncHttpClientData):
                         response=response, session=session,
                         custom_parse=custom_parse, key=key,
                         request=request_params)
-                    # 保存数据
-                    if content is not None and isinstance(item, dict):
-                        if key is None:
-                            key = str(0)
-                        item[key] = content
                     # read数据
                     if read is True:
                         return (response, await response.read())
-                    return response
+                    return content
 
             except self.EXCEPTION as error:
                 if self._message is True:

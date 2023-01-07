@@ -124,7 +124,7 @@ class AsyncHttpClientData:
         elif isinstance(urls, dict):
             for key, val in urls.items():
                 _val = None
-                # type(urls) -> str or URL
+                # type(val) -> str or URL
                 if isinstance(val, (str, URL)):
                     _val = self._build_url(val)
                 # type(val) -> iter_type
@@ -212,6 +212,8 @@ class AsyncHttpClientData:
 
 
     def _set_request_parameter(self, url, **kwargs):
+        if not isinstance(url, URL):
+            url = self._build_url(url)
         kwargs["url"] = url
         # parameters - method
         method  = kwargs.get("method")
