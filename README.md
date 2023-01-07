@@ -52,7 +52,7 @@ urls = {
     f"第{i}个": {"url": url, "timeout": 5}
         for i in range(2)
 }
-aclient = AsyncHttpClient()
+
 result  = asyncio.run(
     aclient.gather_request(
         urls, custom_parse=parse
