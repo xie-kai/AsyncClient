@@ -1,4 +1,5 @@
 # coding: utf-8
+import warnings
 import asyncio
 import aiohttp
 from yarl import URL
@@ -14,7 +15,6 @@ class AsyncHttpClientData:
     ESLEEP     = 2
     # 捕获异常并重试
     EXCEPTION  = (
-        asyncio.exceptions.TimeoutError,
         aiohttp.client_exceptions.ClientConnectorError,
     )
     # 捕获请求异常状态码 并重新发送请求 直到成功
@@ -30,7 +30,7 @@ class AsyncHttpClientData:
         sleep    : int  = None,
         cstatus  : int  = None,
         status_ok: bool = True,
-        message  : bool = False
+        warn     : bool = False
     ):
         """
         :params base_url  : 若存在base_url并且请求链接不是绝对路径会进行拼接 default: None
@@ -41,7 +41,7 @@ class AsyncHttpClientData:
         :params sleep     : 每个请求休眠 asyncio.sleep(sleep) default: None
         :params cstatus   : 捕获请求状态码并重新发送请求
         :params status_ok : 循环发送请求直到状态码200结束 default: True
-        :params message   : 打印异常信息 default: False
+        :params warn      : 打印异常信息 default: False
         """
         self._limit     = limit
         self._base_url  = base_url
@@ -51,7 +51,7 @@ class AsyncHttpClientData:
         self._sleep     = sleep
         self._cstatus   = cstatus
         self._status_ok = bool(status_ok)
-        self._message   = bool(message)
+        self._warn   = bool(warn)
         self._initialization()
 
 
@@ -174,8 +174,8 @@ class AsyncHttpClientData:
         if kwargs.__contains__("connector"):
             kwargs.pop("connector")
             warnings.warn(
-                f"\033[33m{self.__class__.__name__}.requests 'connector' 不建议通过参数传递"
-                "请使用'limit'将为你自动创建 connector\033[0m")
+                f"\n\033[33m{self.__class__.__name__}.gather_request 'connector' 已弃用参数传递"
+                "\n请使用 'limit' 将为你自动创建 Connector\033[0m")
 
         # 获取默认参数
         base_url = kwargs.pop("base_url") if kwargs.__contains__("base_url") else None
@@ -204,7 +204,7 @@ class AsyncHttpClientData:
         # headers update
         if isinstance(headers, dict) and headers:
             self._headers.update(headers)
-        # 创建session连接池参数
+        # 创建session连接池默认参数参数
         kwargs["timeout"]   = aiohttp.ClientTimeout(total=self._timeout)
         kwargs["headers"]   = self._headers
         kwargs["connector"] = aiohttp.TCPConnector(limit=self._limit)
@@ -213,16 +213,26 @@ class AsyncHttpClientData:
 
     def _set_request_parameter(self, url, **kwargs):
         if not isinstance(url, URL):
+            if not isinstance(url, str):
+                raise TypeError(
+                    f"\033[31m{self.__class__.__name__}.request 'url' not str, "
+                    f"but a '{type(url).__name__}'\033[0m")
             url = self._build_url(url)
         kwargs["url"] = url
         # parameters - method
-        method  = kwargs.get("method")
-        if isinstance(method, str):
+        method  = kwargs.get("method", None)
+        if method is not None:
             # 检测请求方式是否输入正确
-            if method.upper() not in aiohttp.hdrs.METH_ALL:
-                kwargs["method"] = "GET"
+            if not isinstance(method, str) \
+                or method.upper() not in aiohttp.hdrs.METH_ALL:
+                warnings.warn(
+                    f"\n\033[33mthe 'method' equals '{method}' does not exist, "
+                    "set the default value to 'GET'\033[0m")
+                method = "GET"
+            # method 替换为大写
             if method != method.upper():
-                kwargs["method"] = method.upper()
+                method = method.upper()
         else:
-            kwargs["method"] = "GET"
+            method = "GET"
+        kwargs["method"] = method
         return kwargs

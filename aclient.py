@@ -19,6 +19,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         sleep=None,
         cstatus=None,
         status_ok=None,
+        warn=None,
         **kwargs
     ):
         """
@@ -28,6 +29,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         :params sleep        : 每个请求休眠 asyncio.sleep(sleep)
         :params cstatus      : 捕获请求状态码并重新发送请求
         :params status_ok    : 循环发送请求直到状态码200停止 default: True
+        :params warn         : 打印异常信息 default: False
 
         urls - type(urls) -> dict: format:
         urls = {
@@ -65,6 +67,9 @@ class AsyncHttpClient(AsyncHttpClientData):
         # status_ok
         if status_ok is not None:
             self._status_ok = bool(status_ok)
+        # 异常信息提醒
+        if warn is not None:
+            self._warn = bool(warn)
         # 开启异步session连接池
         async with aiohttp.ClientSession(**session_params) as session:
             # url地址包含在item字典中
@@ -73,9 +78,9 @@ class AsyncHttpClient(AsyncHttpClientData):
                     key=key,
                     session=session,
                     custom_parse=custom_parse,
-                    **_item
+                    **item
                 )
-                    for key, _item in urls.items()
+                    for key, item in urls.items()
             ]
             # 收集所有异步任务 gather返回结果顺序为 tasks 传入顺序
             tasks_result = await asyncio.gather(*tasks)
@@ -94,6 +99,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         key=None,
         status_ok=None,
         read=False,
+        warn=None,
         **kwargs
     ):
         """
@@ -103,6 +109,7 @@ class AsyncHttpClient(AsyncHttpClientData):
         :params key          : key 用于自定义方法 custom_parse 的关键字参数
         :params read         : 返回值 (response, read) read= await response.read()
                                数据量过大不建议开启 default: False
+        :params warn         : 打印异常信息 default: False
 
         # 判断session是否可用 不可用创建 session
         # 不建议直接使用request
@@ -115,9 +122,12 @@ class AsyncHttpClient(AsyncHttpClientData):
         # status_ok
         if status_ok is not None:
             self._status_ok = bool(status_ok)
+        # 异常信息提醒
+        if warn is not None:
+            self._warn = bool(warn)
         try:
             content = await self._request(
-                url, session, key, custom_parse, bool(read), **kwargs)
+                url, session, custom_parse, key, bool(read), **kwargs)
         finally:
             # 关闭创建的session
             if _new_session is True:
@@ -129,8 +139,8 @@ class AsyncHttpClient(AsyncHttpClientData):
         self,
         url,
         session=None,
-        key=None,
         custom_parse=None,
+        key=None,
         read=False,
         **kwargs
     ):
@@ -150,13 +160,24 @@ class AsyncHttpClient(AsyncHttpClientData):
                         request=request_params)
                     # read数据
                     if read is True:
-                        return (response, await response.read())
+                        return (content, await response.read())
                     return content
+            
+            # 请求超时
+            except asyncio.exceptions.TimeoutError as error:
+                if self._warn is True:
+                    # 获取超时时间
+                    timeout = request_params["timeout"] \
+                        if request_params.__contains__("timeout") \
+                            else session.timeout.total
+                    warnings.warn(
+                        f"\n\033[33merror: TimeoutError: {error}"
+                        f"\nTimeout: {timeout}\033[0m")
+                await asyncio.sleep(self.ESLEEP)
 
             except self.EXCEPTION as error:
-                if self._message is True:
-                    warnings.warn(
-                        f"\033[31merror: {error}\033[0m")
+                if self._warn is True:
+                    warnings.warn(f"\033[31merror: {error}\033[0m")
                 await asyncio.sleep(self.ESLEEP)
 
 
@@ -173,9 +194,9 @@ class AsyncHttpClient(AsyncHttpClientData):
             status_ok = False
 
         if status in self._cstatus or status_ok:
-            if self._message is True:
+            if self._warn is True:
                 warnings.warn(
-                    f"\033[31mresponse status: {response.status}\033[0m")
+                    f"\033[33mresponse status: {response.status}\033[0m")
             return False
         return True
 
