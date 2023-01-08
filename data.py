@@ -34,7 +34,7 @@ class AsyncHttpClientData:
     ):
         """
         :params base_url  : 若存在base_url并且请求链接不是绝对路径会进行拼接 default: None
-        :params limit     : 控制本度TCP同时连接数量 若同时请求太多访问被拒绝,请设置limit default: 100
+        :params limit     : 控制本地TCP同时连接数量 若同时请求太多访问被拒绝,请设置limit default: 100
         :params headers   : 请求头, 默认配置UserAgent在其中
         :params timeout   : 请求超时时间 若抛出超时异常,会重新请求 default: 60
         :params encoded   : URL编码 default: False
