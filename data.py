@@ -51,7 +51,7 @@ class AsyncHttpClientData:
         self._sleep     = sleep
         self._cstatus   = cstatus
         self._status_ok = bool(status_ok)
-        self._warn   = bool(warn)
+        self._warn      = bool(warn)
         self._initialization()
 
 
