@@ -1,7 +1,5 @@
-# coding: utf-8
 import asyncio
-import aiohttp
-from .aclient import AsyncHttpClient
+from .api import AsyncClient
 
 
-__all__ = ["AsyncHttpClient", "asyncio", "aiohttp"]
+__all__ = ["AsyncClient", "asyncio"]
